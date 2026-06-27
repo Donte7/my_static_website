@@ -1,7 +1,7 @@
 # ============================================================
 # PIPELINE: Deploy Static Site to Azure Blob Storage
 # Automates your SOP: Static Website on Azure Blob Storage
-# Trigger: Every push to main branch
+# Trigger: Every push to main branch -
 # ============================================================
 
 name: Deploy Static Site to Azure
