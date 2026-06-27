@@ -1,0 +1,118 @@
+# ============================================================
+# PIPELINE: Deploy Static Site to Azure Blob Storage
+# Automates your SOP: Static Website on Azure Blob Storage
+# Trigger: Every push to main branch
+# ============================================================
+
+name: Deploy Static Site to Azure
+
+# ── TRIGGER ──────────────────────────────────────────────────
+# This tells GitHub WHEN to run the pipeline.
+# "push to main" = every time you save and push your code.
+# This replaces the manual decision of "ok I'm ready to deploy"
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # lets you also trigger manually from GitHub
+
+# ── JOBS ─────────────────────────────────────────────────────
+# A job is a group of steps that run together on one machine.
+# We have 2 jobs: validate first, then deploy.
+jobs:
+
+  # ────────────────────────────────────────────────────────
+  # JOB 1: VALIDATE
+  # Mirrors SOP Phase 3 — checks your HTML BEFORE touching Azure
+  # ────────────────────────────────────────────────────────
+  validate:
+    name: Validate HTML Files
+    runs-on: ubuntu-latest  # GitHub spins up a fresh Linux machine
+
+    steps:
+
+      # STEP 1: Download your code onto the runner machine
+      # Without this the machine is empty — it has no files
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # STEP 2: Install Node.js so we can use npm tools
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # STEP 3: Install HTMLHint — a tool that reads your HTML
+      # and flags broken tags, missing attributes, bad structure
+      - name: Install HTMLHint
+        run: npm install -g htmlhint
+
+      # STEP 4: Run the validator against both your HTML files
+      # If either file has an error, pipeline STOPS here.
+      # Nothing broken ever reaches Azure.
+      - name: Validate index.html
+        run: htmlhint index.html
+
+      - name: Validate 404.html
+        run: htmlhint 404.html
+
+  # ────────────────────────────────────────────────────────
+  # JOB 2: DEPLOY
+  # Mirrors SOP Phase 3 Step 8 — uploading to $web container
+  # Only runs if validate job passed completely
+  # ────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Azure Blob Storage
+    runs-on: ubuntu-latest
+    needs: validate  # waits for validate to pass — never skips this
+
+    steps:
+
+      # STEP 1: Download your code again onto this new machine
+      # Each job gets a fresh machine — files don't carry over
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # STEP 2: Log in to Azure using your stored secret
+      # This is the automated version of logging into portal.azure.com
+      # Your credentials never appear in this file — they stay in GitHub Secrets
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # STEP 3: Upload your HTML files to the $web container
+      # Mirrors SOP Step 8 — clicking Upload in the Azure Portal
+      # --pattern "*.html" ensures ONLY site files are uploaded
+      # --overwrite true ensures updated files replace old ones
+      - name: Upload files to Azure $web container
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
+              --account-key ${{ secrets.AZURE_STORAGE_KEY }} \
+              --destination '$web' \
+              --source . \
+              --pattern "*.html" \
+              --overwrite true
+
+      # STEP 4: Smoke test — automatically visits your live URL
+      # Mirrors SOP Step 9 — opening the browser to check the site
+      # curl fetches the page and checks if it returns HTTP 200 (success)
+      - name: Verify site is live
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+            ${{ secrets.AZURE_STATIC_ENDPOINT }})
+          echo "HTTP Status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Site check failed — returned $STATUS"
+            exit 1
+          else
+            echo "Site is live and healthy"
+          fi
+
+      # STEP 5: Print your live URL to the pipeline log
+      # So you always know exactly where your site is after deploy
+      - name: Print live URL
+        run: echo "Deployed to → ${{ secrets.AZURE_STATIC_ENDPOINT }}"

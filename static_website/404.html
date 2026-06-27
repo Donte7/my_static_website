@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 - Lost in Space</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", Arial, sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #0f172a, #1e293b, #111827);
+      color: white;
+      text-align: center;
+      position: relative;
+    }
+
+    /* Animated stars */
+    .stars {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .star {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 2s infinite alternate;
+    }
+
+    @keyframes twinkle {
+      from { opacity: 0.2; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1.6); }
+    }
+
+    .container {
+      z-index: 2;
+      padding: 40px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0px); }
+      50% { transform: translateY(-12px); }
+    }
+
+    h1 {
+      font-size: 8rem;
+      color: #38bdf8;
+      text-shadow: 0 0 20px rgba(56,189,248,.6);
+    }
+
+    h2 {
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+
+    p {
+      color: #cbd5e1;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    .astronaut {
+      font-size: 5rem;
+      display: inline-block;
+      animation: spin 8s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    button {
+      padding: 14px 28px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 50px;
+      background: #38bdf8;
+      color: white;
+      cursor: pointer;
+      transition: .3s;
+      box-shadow: 0 0 15px rgba(56,189,248,.5);
+    }
+
+    button:hover {
+      background: #0ea5e9;
+      transform: scale(1.08);
+      box-shadow: 0 0 25px rgba(56,189,248,.8);
+    }
+
+    .planet {
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle at 30% 30%, #facc15, #f97316);
+      border-radius: 50%;
+      bottom: -60px;
+      right: -60px;
+      box-shadow: 0 0 50px rgba(249,115,22,.5);
+    }
+
+    .planet::before {
+      content: "";
+      position: absolute;
+      width: 250px;
+      height: 30px;
+      border: 5px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      top: 70px;
+      left: -35px;
+      transform: rotate(-15deg);
+    }
+  </style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="container">
+  <div class="astronaut">👨‍🚀</div>
+
+  <h1>404</h1>
+  <h2>Houston, We Have a Problem!</h2>
+
+  <p>
+    Looks like this page drifted off into deep space.<br>
+    Don't worry—we'll help you get back to Earth.
+  </p>
+
+ 
+</div>
+
+<div class="planet"></div>
+
+<script>
+  const stars = document.querySelector(".stars");
+
+  for (let i = 0; i < 180; i++) {
+    const star = document.createElement("div");
+    star.className = "star";
+
+    star.style.left = Math.random() * 100 + "%";
+    star.style.top = Math.random() * 100 + "%";
+    star.style.animationDuration = (Math.random() * 3 + 1) + "s";
+    star.style.animationDelay = Math.random() * 2 + "s";
+
+    stars.appendChild(star);
+  }
+</script>
+
+</body>
+</html>
