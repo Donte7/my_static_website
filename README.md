@@ -1,13 +1,13 @@
-# Static Site CI/CD Pipeline Lab
-### Guided by Mr. Robot — DevOps & Cloud Security Engineer
+# Static Site CI/CD Pipeline — Azure Blob Storage & GitHub Actions
 
----
+A fully automated CI/CD pipeline that deploys a static website to Azure Blob Storage, triggered automatically on every push to GitHub. The pipeline runs HTML validation as a quality gate before deployment, authenticates to Azure using a least-privilege Service Principal stored in GitHub Secrets, uploads files to the `$web` container via Azure CLI, and runs a smoke test to confirm the live site is healthy — turning a manual, multi-step deployment process into a simple `git push`.
 
-## What We Built
+**Pipeline stages:**
+- **Validate** — HTMLHint checks `index.html` and `404.html` before anything touches Azure
+- **Deploy** — Uploads validated files to the Azure `$web` static hosting container
+- **Verify** — Smoke test confirms the live endpoint returns HTTP 200
 
-A fully automated CI/CD pipeline that deploys a static website to **Azure Blob Storage** using **GitHub Actions** — triggered automatically every time you push code from **VS Code**.
-
-Every manual step from the SOP is now automated. You write code, push it, and the pipeline handles the rest.
+**Stack:** VS Code, Git/GitHub, GitHub Actions, GitHub Secrets, Azure Blob Storage, Azure CLI, HTMLHint
 
 ---
 
@@ -43,7 +43,7 @@ Your site is updated on Azure 🚀
 | GitHub Actions | CI/CD automation engine |
 | GitHub Secrets | Encrypted credential storage |
 | Azure Blob Storage | Static website hosting |
-| Azure CLI | Deploys files to $web container |
+| Azure CLI | Deploys files to `$web` container |
 | HTMLHint | HTML validation / quality gate |
 
 ---
@@ -63,46 +63,42 @@ my-static-site/
 
 ## Prerequisites
 
-Before running this pipeline you need:
-
 - [ ] An active Microsoft Azure account
 - [ ] An Azure Storage Account with static website hosting enabled
 - [ ] A GitHub account and repository
-- [ ] VS Code installed on your Mac
-- [ ] Git installed on your Mac
+- [ ] VS Code installed on your machine
+- [ ] Git installed on your machine
 - [ ] 4 GitHub Secrets configured (see below)
 
 ---
 
-## Phase 1 — Azure Setup (Manual — One Time Only)
-
-These steps follow the SOP and are done once in the Azure Portal.
+## Phase 1 — Azure Setup (Manual, One Time Only)
 
 ### Step 1 — Create a Storage Account
 
-1. Log in to **https://portal.azure.com**
+1. Log in to [portal.azure.com](https://portal.azure.com)
 2. Search for **Storage accounts** → click **+ Create**
 3. Configure:
    - **Resource Group:** Create new → `RG-StaticSite-Lab`
-   - **Storage Account Name:** `yourname staticsite` (lowercase, no hyphens, globally unique)
+   - **Storage Account Name:** lowercase, no hyphens, globally unique (e.g. `yourname staticsite`)
    - **Region:** East US
    - **Performance:** Standard
    - **Redundancy:** Locally-redundant storage (LRS)
 4. Click **Review** → **Create**
 5. Wait 30–60 seconds → click **Go to resource**
 
-> ⚠️ **COMMON ERROR:** Storage account names must be globally unique across ALL of Azure — 3 to 24 characters, all lowercase, letters and numbers only. No hyphens or underscores.
+> ⚠️ **Common error:** Storage account names must be globally unique across all of Azure — 3 to 24 characters, lowercase letters and numbers only, no hyphens or underscores.
 
 ### Step 2 — Enable Static Website Hosting
 
-1. In your Storage Account left menu → **Data management** → **Static website**
+1. In your Storage Account, go to **Data management** → **Static website**
 2. Click **Enabled**
 3. Set **Index document name:** `index.html` (case-sensitive)
 4. Set **Error document path:** `404.html`
 5. Click **Save**
-6. Copy the **Primary endpoint URL** — save it somewhere safe
+6. Copy the **Primary endpoint URL** and save it
 
-> ⚠️ **COMMON ERROR:** If you don't see Static website in the menu, your account was created as Blob Storage instead of StorageV2. Delete and recreate it — the portal defaults to StorageV2 if you follow the steps above.
+> ⚠️ **Common error:** If "Static website" isn't in the menu, the account was created as Blob Storage instead of StorageV2. Delete and recreate it.
 
 ---
 
@@ -110,14 +106,9 @@ These steps follow the SOP and are done once in the Azure Portal.
 
 ### Step 3 — Open Terminal in VS Code
 
-Press `` Command + ` `` to open the integrated terminal.
+Press `Cmd + ` ` (Mac) to open the integrated terminal.
 
-You should see:
-```
-yourname@MacBook ~ %
-```
-
-### Step 4 — Create Your Project Folder
+### Step 4 — Create the Project Folder
 
 ```bash
 mkdir my-static-site
@@ -125,18 +116,13 @@ cd my-static-site
 pwd
 ```
 
-Expected output:
-```
-/Users/yourname/my-static-site
-```
-
-### Step 5 — Open Folder in VS Code
+### Step 5 — Open the Folder in VS Code
 
 ```bash
 code .
 ```
 
-> ⚠️ **COMMON ERROR:** If you get `command not found: code` — open VS Code → `Command + Shift + P` → type `Shell Command` → select **Install 'code' command in PATH**.
+> ⚠️ **Common error:** `command not found: code` → In VS Code, `Cmd + Shift + P` → "Shell Command" → **Install 'code' command in PATH**.
 
 ### Step 6 — Create Project Files
 
@@ -148,18 +134,9 @@ touch .github/workflows/deploy.yml
 ls -la
 ```
 
-Expected output:
-```
-.github/
-404.html
-index.html
-```
+> ⚠️ **Common error:** `.github` is a hidden folder — use `ls -la` (not `ls`) to confirm it exists.
 
-> ⚠️ **COMMON ERROR:** `.github` is a hidden folder. Always use `ls -la` (not just `ls`) to see hidden files and folders on Mac.
-
-### Step 7 — Add Content to index.html
-
-Click `index.html` in VS Code sidebar and paste:
+### Step 7 — Add Content to `index.html`
 
 ```html
 <!DOCTYPE html>
@@ -175,11 +152,7 @@ Click `index.html` in VS Code sidebar and paste:
 </html>
 ```
 
-Save with `Command + S`.
-
-### Step 8 — Add Content to 404.html
-
-Click `404.html` in VS Code sidebar and paste:
+### Step 8 — Add Content to `404.html`
 
 ```html
 <!DOCTYPE html>
@@ -195,20 +168,15 @@ Click `404.html` in VS Code sidebar and paste:
 </html>
 ```
 
-Save with `Command + S`.
-
 ---
 
 ## Phase 3 — The CI/CD Pipeline File
 
-### Step 9 — Add deploy.yml
-
-Click `.github/workflows/deploy.yml` in the VS Code sidebar and paste:
+### Step 9 — Add `deploy.yml`
 
 ```yaml
 # ============================================================
 # PIPELINE: Deploy Static Site to Azure Blob Storage
-# Automates SOP: Static Website on Azure Blob Storage
 # Trigger: Every push to main branch
 # ============================================================
 
@@ -223,7 +191,6 @@ on:
 jobs:
 
   # ── JOB 1: VALIDATE ──────────────────────────────────────
-  # Checks your HTML before anything touches Azure
   validate:
     name: Validate HTML Files
     runs-on: ubuntu-latest
@@ -247,7 +214,6 @@ jobs:
         run: htmlhint 404.html
 
   # ── JOB 2: DEPLOY ────────────────────────────────────────
-  # Uploads files to Azure — only runs if validate passed
   deploy:
     name: Deploy to Azure Blob Storage
     runs-on: ubuntu-latest
@@ -290,220 +256,74 @@ jobs:
         run: echo "Deployed to → ${{ secrets.AZURE_STATIC_ENDPOINT }}"
 ```
 
-Save with `Command + S`.
-
-> ⚠️ **COMMON ERROR:** YAML is extremely sensitive to indentation. Every level uses exactly 2 spaces — never tabs. If you see red underlines in VS Code, check your indentation first.
+> ⚠️ **Common error:** YAML is sensitive to indentation — use exactly 2 spaces per level, never tabs.
 
 ---
 
 ## Phase 4 — GitHub Secrets Setup
 
-Your pipeline needs 4 secrets stored in GitHub. These are encrypted — nobody can read them after saving, including you.
+Add these under **Settings → Secrets and variables → Actions → New repository secret**.
 
-### Where to Add Secrets
+| Secret | Value | Where to find it |
+|---|---|---|
+| `AZURE_STORAGE_ACCOUNT` | Your storage account name | Azure Portal → Storage accounts |
+| `AZURE_STORAGE_KEY` | Your storage account key1 | Storage Account → Security + networking → Access keys |
+| `AZURE_STATIC_ENDPOINT` | Your primary endpoint URL | Storage Account → Data management → Static website |
+| `AZURE_CREDENTIALS` | Service Principal JSON (see below) | Generated via Azure CLI |
 
-GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+> 🔴 **Security alert:** The storage account key gives full access to your account. Never paste it into code, chat, or email — GitHub Secrets only.
 
-### Secret 1 — AZURE_STORAGE_ACCOUNT
+### Creating `AZURE_CREDENTIALS`
 
-| Field | Value |
-|---|---|
-| Name | `AZURE_STORAGE_ACCOUNT` |
-| Value | Your storage account name e.g. `charlesstaticlab` |
+1. Open **Azure Cloud Shell** (Bash) from the Azure Portal
+2. Get your Subscription ID:
+   ```bash
+   az account show --query id --output tsv
+   ```
+3. Create the Service Principal:
+   ```bash
+   az ad sp create-for-rbac \
+     --name "github-static-site-deployer" \
+     --role "Storage Blob Data Contributor" \
+     --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/RG-StaticSite-Lab \
+     --sdk-auth
+   ```
+4. Copy the entire JSON output (from `{` to `}`, nothing more) and paste it as the value of `AZURE_CREDENTIALS`.
 
-**Where to find it:** Azure Portal → Storage accounts → your account name
+> ⚠️ **Common error:** If a WARNING message appears above the JSON in Cloud Shell, do not include it — only the JSON block.
 
-### Secret 2 — AZURE_STORAGE_KEY
-
-| Field | Value |
-|---|---|
-| Name | `AZURE_STORAGE_KEY` |
-| Value | Your storage account key1 value |
-
-**Where to find it:** Azure Portal → Storage Account → Security + networking → Access keys → key1 → Show → Copy
-
-> 🔴 **SECURITY ALERT:** This key gives full access to your storage account. Never paste it into code, chat, or email. GitHub Secrets is the only place it should live.
-
-### Secret 3 — AZURE_STATIC_ENDPOINT
-
-| Field | Value |
-|---|---|
-| Name | `AZURE_STATIC_ENDPOINT` |
-| Value | Your primary endpoint URL e.g. `https://charlesstaticlab.z13.web.core.windows.net/` |
-
-**Where to find it:** Azure Portal → Storage Account → Data management → Static website → Primary endpoint
-
-### Secret 4 — AZURE_CREDENTIALS (Service Principal JSON)
-
-This is the most important secret. It gives your pipeline permission to log into Azure.
-
-**Step 1 — Open Azure Cloud Shell**
-
-In Azure Portal click the `>_` icon in the top right. Choose **Bash**.
-
-**Step 2 — Get your Subscription ID**
-
-```bash
-az account show --query id --output tsv
-```
-
-Copy the output.
-
-**Step 3 — Create the Service Principal**
-
-```bash
-az ad sp create-for-rbac \
-  --name "github-static-site-deployer" \
-  --role "Storage Blob Data Contributor" \
-  --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/RG-StaticSite-Lab \
-  --sdk-auth
-```
-
-**Step 4 — Copy the entire JSON output**
-
-```json
-{
-  "clientId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "clientSecret": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "subscriptionId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "tenantId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "activeDirectoryEndpointUrl": "https://login.microsoftonline.com",
-  "resourceManagerEndpointUrl": "https://management.azure.com/",
-  "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-  "sqlManagementEndpointUrl": "https://management.core.windows.net:8443/",
-  "galleryEndpointUrl": "https://gallery.azure.com/",
-  "managementEndpointUrl": "https://management.core.windows.net/"
-}
-```
-
-Copy from `{` to `}` — the entire block, nothing more, nothing less.
-
-| Field | Value |
-|---|---|
-| Name | `AZURE_CREDENTIALS` |
-| Value | The entire JSON block above |
-
-> ⚠️ **COMMON ERROR:** If a WARNING message appears above the JSON in Cloud Shell — do NOT include it. Copy only the JSON block. Any extra text breaks the secret instantly.
-
-> 🔴 **SECURITY ALERT:** The Service Principal is scoped to `Storage Blob Data Contributor` on your resource group only. This is least privilege — it can only upload files to your storage account, nothing else. Never use Owner or Contributor at the subscription level for a pipeline.
+> 🔴 **Security alert:** This Service Principal is scoped to `Storage Blob Data Contributor` on the resource group only — least privilege. Never use Owner or Contributor at the subscription level for a pipeline.
 
 ---
 
-## Phase 5 — Git Commands (In Order)
-
-Run these one at a time in your VS Code terminal. Wait for each to finish before running the next.
+## Phase 5 — Git Commands (First-Time Setup)
 
 ```bash
-# 1. Confirm you are in your project folder
-pwd
-```
-✅ Should show: `/Users/yourname/my-static-site`
-
-```bash
-# 2. Initialize Git
 git init
-```
-✅ Should show: `Initialized empty Git repository...`
-
-```bash
-# 3. Set your Git name
 git config --global user.name "Your Name"
-```
-✅ No output = success
-
-```bash
-# 4. Set your Git email — use your GitHub account email
 git config --global user.email "you@example.com"
-```
-✅ No output = success
-
-```bash
-# 5. Check what files Git sees
-git status
-```
-✅ Should show 3 files in red — not staged yet
-
-```bash
-# 6. Stage all files
 git add .
-```
-✅ No output = success
-
-```bash
-# 7. Confirm files are staged
-git status
-```
-✅ Should show 3 files in green — ready to commit
-
-```bash
-# 8. Create your first commit
 git commit -m "Initial commit: static site + CI/CD pipeline"
-```
-✅ Should show: `3 files changed...`
-
-```bash
-# 9. Set branch name to main
 git branch -M main
-```
-✅ No output = success
-
-```bash
-# 10. Connect to your GitHub repo
 git remote add origin https://github.com/yourusername/my-static-site.git
-```
-✅ No output = success
-
-```bash
-# 11. Verify the GitHub connection
-git remote -v
-```
-✅ Should show your GitHub URL twice
-
-```bash
-# 12. Push your code to GitHub
 git push -u origin main
 ```
-✅ Should show files uploading to GitHub
 
-> ⚠️ **COMMON ERROR:** If Step 12 asks for a password — use your **GitHub Personal Access Token**, NOT your GitHub account password. Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token → check `repo` scope → copy and use as password.
-
----
-
-## Phase 6 — Watch Your Pipeline Run
-
-1. Go to your GitHub repo
-2. Click the **Actions** tab
-3. Click your workflow run **"Deploy Static Site to Azure"**
-4. Watch both jobs complete:
-
-```
-✅ Validate HTML Files
-✅ Deploy to Azure Blob Storage
-```
-
-5. Expand **"Verify site is live"** — you should see:
-```
-HTTP Status: 200
-Site is live and healthy
-```
-
-6. Open your Primary Endpoint URL in a browser — you should see:
-```
-Hello from Azure Blob Storage!
-```
+> ⚠️ **Common error:** If `git push` asks for a password, use a **GitHub Personal Access Token**, not your account password. Generate one under GitHub → Settings → Developer settings → Personal access tokens (with `repo` scope).
 
 ---
 
-## SOP to Pipeline Mapping
+## Phase 6 — Watch the Pipeline Run
 
-| SOP Phase | What Automates It |
-|---|---|
-| Phase 1: Create Storage Account | Done once manually in Azure Portal |
-| Phase 2: Enable Static Website | Done once manually in Azure Portal |
-| Phase 3 Step 7: Create index.html | Lives in your VS Code project |
-| Phase 3 Step 8: Upload to $web | `az storage blob upload-batch` step |
-| Phase 4 Step 9: Visit your site | `curl` smoke test step |
-| Phase 6: Teardown | Still manual — pipelines don't delete infra |
+1. Go to your GitHub repo → **Actions** tab
+2. Open the **"Deploy Static Site to Azure"** workflow run
+3. Confirm both jobs pass:
+   ```
+   ✅ Validate HTML Files
+   ✅ Deploy to Azure Blob Storage
+   ```
+4. Expand **"Verify site is live"** — expect `HTTP Status: 200`
+5. Open your Primary Endpoint URL in a browser to confirm the site is live
 
 ---
 
@@ -511,56 +331,45 @@ Hello from Azure Blob Storage!
 
 | Error | Cause | Fix |
 |---|---|---|
-| `command not found: code` | VS Code shell command not installed | `Command + Shift + P` → Install 'code' command in PATH |
-| Pipeline login fails with SyntaxError | AZURE_CREDENTIALS JSON is incomplete or has extra text | Regenerate the Service Principal, copy only the `{...}` block |
-| `git push` asks for password and rejects it | GitHub no longer accepts account passwords | Use a Personal Access Token instead |
-| Pipeline runs both jobs at same time | Missing `needs: validate` in deploy job | Add `needs: validate` under the deploy job |
-| Files don't appear on the live site | Uploaded to wrong container | Confirm files are in `$web` not another container |
-| `.github` folder not visible | It's a hidden folder | Use `ls -la` to see hidden files |
-| 404 on the live site | index.html named incorrectly | Check for `.txt` extension — must be exactly `index.html` |
-| Pipeline uploads internal files to Azure | Missing `--pattern "*.html"` flag | Always use `--pattern "*.html"` in upload-batch command |
+| `command not found: code` | VS Code shell command not installed | Install via Command Palette → Shell Command |
+| Pipeline login fails | `AZURE_CREDENTIALS` JSON incomplete or malformed | Regenerate the Service Principal, copy only the `{...}` block |
+| `git push` rejects password | GitHub no longer accepts account passwords | Use a Personal Access Token |
+| Both jobs run simultaneously | Missing `needs: validate` | Add `needs: validate` under the deploy job |
+| Files missing from live site | Uploaded to wrong container | Confirm files are in `$web` |
+| `.github` folder not visible | Hidden folder | Use `ls -la` |
+| 404 on live site | `index.html` named incorrectly | Confirm exact filename, no extra extension |
+| Internal files uploaded to Azure | Missing `--pattern "*.html"` | Always include the pattern flag in upload-batch |
 
 ---
 
-## Security Alerts Summary
+## Security Notes
 
-| Alert | Rule |
-|---|---|
-| Credentials in code | NEVER put passwords, keys, or tokens in your code or YAML files |
-| Storage Account Key | Treat like a password — GitHub Secrets only |
-| Service Principal scope | Use `Storage Blob Data Contributor` scoped to resource group only — never Owner |
-| Upload pattern | Always use `--pattern "*.html"` — never upload everything blindly |
-| .github folder in $web | Never let pipeline config files reach your public container |
-| Information disclosure | Never expose internal file structure, account names, or configs publicly |
-| Repo visibility | Keep repo private until you have reviewed all files and configs |
+- Never commit passwords, keys, or tokens to code or YAML files
+- Treat the storage account key like a password — GitHub Secrets only
+- Scope the Service Principal to `Storage Blob Data Contributor` on the resource group, never Owner
+- Always use `--pattern "*.html"` on upload — never upload indiscriminately
+- Never let `.github` config files reach the public `$web` container
+- Keep the repo private until secrets and configs have been reviewed
 
 ---
 
-## Key Concepts Learned
+## Key Concepts
 
-**CI/CD Pipeline**
-A system that automatically builds, tests, and deploys your code every time you push a change. Replaces all manual steps with automation.
+**CI/CD Pipeline** — Automatically builds, tests, and deploys code on every push.
 
-**Quality Gate**
-A checkpoint that must pass before the next stage runs. In our pipeline, `needs: validate` ensures broken HTML never reaches Azure.
+**Quality Gate** — A checkpoint (`needs: validate`) that blocks deployment if validation fails.
 
-**GitHub Secrets**
-An encrypted vault inside your GitHub repo. Credentials go in here — never in your code.
+**GitHub Secrets** — Encrypted credential storage scoped to the repo.
 
-**Service Principal**
-A dedicated robot identity in Azure with limited permissions. Used by pipelines to authenticate without using your personal login.
+**Service Principal** — A dedicated, limited-permission identity Azure pipelines use to authenticate.
 
-**Least Privilege**
-A security principle — give every identity only the minimum permissions it needs to do its job. Our Service Principal can only upload files, nothing else.
+**Least Privilege** — Granting an identity only the minimum permissions it needs.
 
-**$web Container**
-The special Azure Blob Storage container that serves files publicly as a website. Only files in `$web` are accessible via your public URL.
+**`$web` Container** — The special Blob Storage container that serves files as a public website.
 
 ---
 
-## Quick Reference — Git Commands for Every Future Deploy
-
-After your initial setup, every future deploy is just 3 commands:
+## Every Future Deploy
 
 ```bash
 git add .
@@ -568,21 +377,16 @@ git commit -m "describe what you changed"
 git push
 ```
 
-That's it. The pipeline handles everything else automatically.
+The pipeline handles validation, deployment, and verification automatically.
 
 ---
 
-## Azure Teardown (When You're Done)
+## Teardown
 
-To avoid any ongoing charges, delete your resource group:
+To avoid ongoing charges, delete the resource group:
 
-1. Azure Portal → search **Resource groups**
-2. Click **RG-StaticSite-Lab**
-3. Click **Delete resource group**
-4. Type `RG-StaticSite-Lab` to confirm
-5. Click **Delete**
+1. Azure Portal → **Resource groups**
+2. Select **RG-StaticSite-Lab**
+3. **Delete resource group** → type the name to confirm → **Delete**
 
-This removes the storage account, $web container, and all files. Your pipeline will fail on future runs until you recreate the infrastructure.
-
----
-
+This removes the storage account, `$web` container, and all files. The pipeline will fail on future runs until the infrastructure is recreated.
