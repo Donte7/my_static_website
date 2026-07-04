@@ -390,3 +390,7 @@ To avoid ongoing charges, delete the resource group:
 3. **Delete resource group** → type the name to confirm → **Delete**
 
 This removes the storage account, `$web` container, and all files. The pipeline will fail on future runs until the infrastructure is recreated.
+
+---
+## Link to my website 
+https://nerdstaticlab.z13.web.core.windows.net/
