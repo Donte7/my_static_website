@@ -1,4 +1,7 @@
 # Static Site CI/CD Pipeline — Azure Blob Storage & GitHub Actions
+![Deploy](https://github.com/Donte7/ntfs-file-server-lab/actions/workflows/deploy.yml/badge.svg)
+
+
 
 A fully automated CI/CD pipeline that deploys a static website to Azure Blob Storage, triggered automatically on every push to GitHub. The pipeline runs HTML validation as a quality gate before deployment, authenticates to Azure using a least-privilege Service Principal stored in GitHub Secrets, uploads files to the `$web` container via Azure CLI, and runs a smoke test to confirm the live site is healthy — turning a manual, multi-step deployment process into a simple `git push`.
 
